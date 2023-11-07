@@ -31,25 +31,34 @@ class CocoDataloader(data.Dataset):
         # Load in image and label.
         img_path = self.image_dir + self.images[idx]
         label = self.labels[idx]
-
-        # Need to convert NHWC to NCHW.
         image = cv2.imread(img_path)
-        image = np.transpose(image, (2, 0, 1))
 
-        # Apply transforms if available.
+        # Convert image and label to tensors (NCHW) and apply transforms if available.
         if self.transform:
             image = self.transform(image)
+        else:
+            image = torch.from_numpy(np.transpose(image, (2, 0, 1))).to(torch.float)
         if self.target_transform:
             label = self.target_transform(label)
+        else:
+            label = torch.tensor(label, dtype=torch.float)
 
         # Return input and label as tensors.
-        return torch.from_numpy(image).to(torch.float), torch.tensor(label, dtype=torch.float)
+        return image, label
     
+def show_img_label_after_resizing(resized_image, resized_label):
+    # Used for debugging purposes.
+    show_img = resized_image.permute(1,2,0).cpu().detach().numpy().copy()
+    show_label = resized_label.cpu().detach().numpy()
+    for i in range(0, len(show_label), 3):
+        x = int(show_label[i])
+        y = int(show_label[i+1])
+        cv2.circle(show_img, (x, y), 2, (0, 0, 255), -1)        
+    cv2.imshow("Image", show_img)
+    cv2.waitKey(0)
+
 def collate(batch):
     # Get max height and width to resize images.
-    images = [item[0] for item in batch]
-    #max_height = max([image.shape[1] for image in images])
-    #max_width = max([image.shape[2] for image in images])
     max_height = cfg["image_height"]
     max_width = cfg["image_width"]
 
@@ -60,7 +69,6 @@ def collate(batch):
     for image, label in batch:
         image_height = image.shape[1]
         image_width = image.shape[2]
-
         resized_image = transforms.Resize((max_height, max_width), antialias=True)(image)
         resized_label = torch.zeros(51)
 
@@ -72,19 +80,6 @@ def collate(batch):
 
         batch_images.append(resized_image)
         batch_labels.append(resized_label)
-
-        """
-        Used for debugging purposes.
-
-        show_img = resized_image.permute(1,2,0).cpu().detach().numpy().copy()
-        show_label = resized_label.cpu().detach().numpy()
-        for i in range(0, len(show_label), 3):
-            x = int(show_label[i])
-            y = int(show_label[i+1])
-            cv2.circle(show_img, (x, y), 2, (0, 0, 255), -1)        
-        cv2.imshow("Image", show_img)
-        cv2.waitKey(0)
-        """
 
     batch_images = torch.stack(batch_images, dim=0)
     batch_labels = torch.stack(batch_labels, dim=0)
