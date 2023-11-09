@@ -20,7 +20,13 @@ class CocoDataloader(data.Dataset):
             if idx % 2 == 0:
                 self.images.append(line.strip())
             else:
-                label = [int(x) for x in line.strip().split(",")]
+                # Labels come in (x,y,visbility), remove the visibility element.
+                true_label = [int(x) for x in line.strip().split(",")]
+                label = []
+                for i in range(0, 17*3, 3):
+                    label.append(true_label[i])
+                for i in range(1, 17*3+1, 3):
+                    label.append(true_label[i])
                 self.labels.append(label)
             idx += 1
 
@@ -46,13 +52,14 @@ class CocoDataloader(data.Dataset):
         # Return input and label as tensors.
         return image, label
     
-def show_img_label_after_resizing(resized_image, resized_label):
+def show_img_label(resized_image, resized_label):
     # Used for debugging purposes.
     show_img = resized_image.permute(1,2,0).cpu().detach().numpy().copy()
     show_label = resized_label.cpu().detach().numpy()
-    for i in range(0, len(show_label), 3):
+
+    for i in range(0, 17):
         x = int(show_label[i])
-        y = int(show_label[i+1])
+        y = int(show_label[i+17])
         cv2.circle(show_img, (x, y), 2, (0, 0, 255), -1)        
     cv2.imshow("Image", show_img)
     cv2.waitKey(0)
@@ -70,13 +77,13 @@ def collate(batch):
         image_height = image.shape[1]
         image_width = image.shape[2]
         resized_image = transforms.Resize((max_height, max_width), antialias=True)(image)
-        resized_label = torch.zeros(51)
+        resized_label = torch.zeros(17*2)
 
         # (x, y, visible)
-        for idx in range(0, len(label), 3):
+        for idx in range(0, 17):
             resized_label[idx] = (label[idx] * max_width / image_width)
-            resized_label[idx+1] = (label[idx+1] * max_height / image_height)
-            resized_label[idx+2] = (label[idx+2])
+        for idx in range(17, 34):
+            resized_label[idx] = (label[idx] * max_height / image_height)
 
         batch_images.append(resized_image)
         batch_labels.append(resized_label)

@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
+import numpy as np
 
 from config import cfg
 from model import HourglassModel
@@ -23,14 +24,20 @@ def main():
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["learning_rate"])
 
+    # Get number of parameters in model.
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(f"Number of trainable parameters in model: {params}")
+
     # Train the model.
     epochs = list(range(cfg["epochs"]))
     iterations = []
     losses = []
-
     true_iteration = 0
+    print(f"Training the model")
+    model.train()
+
     for epoch in epochs:
-        model.train()
         iteration = 0
 
         for inputs, labels in trainloader:
